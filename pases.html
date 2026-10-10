@@ -8,27 +8,32 @@
   body { font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; }
   .pase { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 12px 0; }
   .pase h3, .pase p { margin: 4px 0; }
+  .precio { font-size: 1.15rem; font-weight: 600; }
+  button.pagar { width: 100%; padding: 12px; margin-top: 8px; border: 0; border-radius: 8px;
+                 background: #009ee3; color: #fff; font-size: 1rem; cursor: pointer; }
+  button.pagar:disabled { opacity: .6; cursor: wait; }
   input { width: 100%; padding: 8px; margin: 6px 0 12px; box-sizing: border-box; }
   #pase-resultado { border: 2px solid #2a9d4b; border-radius: 10px; padding: 12px; }
+  .nota { font-size: .85rem; color: #555; }
 </style>
 </head>
 <body>
 
-<p><a href="index.html">&larr; Volver a las suscripciones</a></p>
+<p><a href="index.html">&larr; Volver</a></p>
 
 <section id="pases">
   <h2>Pases de pago único</h2>
-  <p>Paga una sola vez, sin renovación automática. Puedes pagar con saldo de PayPal.</p>
+  <p>Paga una sola vez, sin renovación automática. Cobramos en pesos con Mercado Pago.</p>
 
   <label>
     ¿Ya tienes un pase? Escribe tu clave para sumarle días (opcional):
     <input id="pase-clave" placeholder="FISK-XXXX-XXXX-XXXX" autocomplete="off">
   </label>
 
-  <div class="pase"><h3>1 día</h3>   <p>US$ 0.01</p>  <div id="pp-1"></div></div>
-  <div class="pase"><h3>7 días</h3>  <p>US$ 16</p>  <div id="pp-7"></div></div>
-  <div class="pase"><h3>30 días</h3> <p>US$ 12</p> <div id="pp-30"></div></div>
+  <div id="lista"><p>Cargando precios…</p></div>
+  <p class="nota" id="nota-cotizacion"></p>
 
+  <p id="estado" hidden></p>
   <div id="pase-resultado" hidden>
     <h3>¡Pago recibido!</h3>
     <p>Tu clave es: <strong id="pase-key"></strong></p>
@@ -37,66 +42,131 @@
     <button type="button" id="pase-copiar">Copiar clave</button>
   </div>
   <p id="pase-error" style="color:#c00" hidden></p>
-</section>
 
-<!-- SDK de PayPal (pago único). Reemplaza TU_CLIENT_ID por tu Client ID Live -->
-<script src="https://www.paypal.com/sdk/js?client-id=BAAfPRoOxdo6wYyN6tcykw8H8WlxGBpiav1uvMc-Jyo7ohxWcXhZmUkSouXEJWghvwxSOvMIUGd0QBFg70&currency=USD&intent=capture"></script>
+  <p class="nota">Soporte y reembolsos: TU_CORREO@ejemplo.com</p>
+</section>
 
 <script>
 (function () {
   const WORKER = "https://fisklive-licencias.fiscardiariel8.workers.dev";
-  const PASES = ["1", "7", "30"]; // deben existir en la variable PASSES del Worker
-
   const $ = (id) => document.getElementById(id);
-  const mostrarError = (m) => { $("pase-error").textContent = m; $("pase-error").hidden = false; };
+  const fmtARS = (n) => "$ " + Number(n).toLocaleString("es-AR");
+  const ls = {
+    get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} },
+    del: (k) => { try { localStorage.removeItem(k); } catch (e) {} },
+  };
 
-  if (typeof paypal === "undefined") {
-    mostrarError("No se pudo cargar PayPal. Revisa el Client ID o desactiva el bloqueador de anuncios.");
-    return;
+  async function api(path, data) {
+    const r = await fetch(WORKER + path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(data || {}),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Ocurrió un error");
+    return d;
   }
 
-  try { const g = localStorage.getItem("fisk_pase_key"); if (g) $("pase-clave").value = g; } catch (e) {}
+  const mostrarError = (m) => { $("pase-error").textContent = m; $("pase-error").hidden = false; };
+  const mostrarEstado = (m) => { $("estado").textContent = m; $("estado").hidden = false; };
 
-  PASES.forEach((id) => {
-    paypal.Buttons({
-      createOrder: async () => {
-        $("pase-error").hidden = true;
-        const key = $("pase-clave").value.trim().toUpperCase() || null;
-        const r = await fetch(WORKER + "/create-order", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ passId: id, key }),
-        });
-        const d = await r.json();
-        if (!r.ok || !d.id) throw new Error(d.error || "No se pudo crear la orden");
-        return d.id;
-      },
+  function mostrarClave(d) {
+    ls.set("fisk_pase_key", d.key);
+    ls.del("fisk_ref");
+    $("estado").hidden = true;
+    $("pase-key").textContent = d.key;
+    $("pase-hasta").textContent = new Date(d.until).toLocaleString();
+    $("pase-resultado").hidden = false;
+    $("pase-resultado").scrollIntoView({ behavior: "smooth" });
+  }
 
-      onApprove: async (data) => {
-        const r = await fetch(WORKER + "/capture-order", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ orderID: data.orderID }),
-        });
-        const d = await r.json();
-        if (!r.ok || !d.key) throw new Error(d.error || "No se pudo confirmar el pago");
+  const guardada = ls.get("fisk_pase_key");
+  if (guardada) $("pase-clave").value = guardada;
 
-        try { localStorage.setItem("fisk_pase_key", d.key); } catch (e) {}
-        $("pase-key").textContent = d.key;
-        $("pase-hasta").textContent = new Date(d.until).toLocaleString();
-        $("pase-resultado").hidden = false;
-        $("pase-resultado").scrollIntoView({ behavior: "smooth" });
-      },
+  // ---- Precios ----
+  async function cargarPrecios() {
+    try {
+      const d = await api("/prices");
+      const lista = $("lista");
+      lista.textContent = "";
+      Object.entries(d.passes).forEach(([id, p]) => {
+        const box = document.createElement("div");
+        box.className = "pase";
+        const h = document.createElement("h3");
+        h.textContent = p.days === 1 ? "1 día" : p.days + " días";
+        const precio = document.createElement("p");
+        precio.className = "precio";
+        precio.textContent = "US$ " + p.usd + " / " + fmtARS(p.ars);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "pagar";
+        btn.textContent = "Pagar con Mercado Pago";
+        btn.onclick = () => pagar(id, btn);
+        box.append(h, precio, btn);
+        lista.appendChild(box);
+      });
+      const tipos = { oficial: "oficial", bolsa: "MEP", contadoconliqui: "CCL", mayorista: "mayorista" };
+      $("nota-cotizacion").textContent =
+        "Precio en pesos calculado con el dólar " + (tipos[d.tipo] || d.tipo) + " (" + fmtARS(d.rate) +
+        ") al momento de pagar.";
+    } catch (e) {
+      $("lista").textContent = "";
+      mostrarError("No se pudieron cargar los precios. Intenta de nuevo en unos minutos.");
+    }
+  }
 
-      onError: (err) => mostrarError(err.message || "Ocurrió un error con el pago"),
-      onCancel: () => mostrarError("Cancelaste el pago. No se te cobró nada."),
-    }).render("#pp-" + id);
-  });
+  // ---- Pagar ----
+  async function pagar(passId, btn) {
+    $("pase-error").hidden = true;
+    btn.disabled = true;
+    btn.textContent = "Redirigiendo a Mercado Pago…";
+    try {
+      const key = $("pase-clave").value.trim().toUpperCase() || null;
+      const d = await api("/create-order", { passId, key });
+      ls.set("fisk_ref", d.ref);
+      location.href = d.url;
+    } catch (e) {
+      mostrarError(e.message);
+      btn.disabled = false;
+      btn.textContent = "Pagar con Mercado Pago";
+    }
+  }
+
+  // ---- Al volver de Mercado Pago ----
+  async function procesarRetorno() {
+    const q = new URLSearchParams(location.search);
+    const limpio = (v) => (v && v !== "null" ? v : null);
+    const pid = limpio(q.get("payment_id")) || limpio(q.get("collection_id"));
+    const status = limpio(q.get("status")) || limpio(q.get("collection_status"));
+    const ref = limpio(q.get("external_reference")) || ls.get("fisk_ref");
+    const vinoDeMP = !!(pid || status);
+    if (!ref) return;
+    if (vinoDeMP) history.replaceState(null, "", location.pathname);
+
+    if (vinoDeMP) mostrarEstado("Verificando tu pago…");
+    try {
+      const d = await api("/claim", { ref, paymentId: pid || undefined });
+      if (d.key) return mostrarClave(d);
+      if (d.failed) {
+        ls.del("fisk_ref");
+        if (vinoDeMP) { $("estado").hidden = true; mostrarError("El pago no se completó. No se te cobró."); }
+        return;
+      }
+      if (vinoDeMP) mostrarEstado("Tu pago está en proceso. Cuando se acredite, vuelve a esta página y verás tu clave.");
+    } catch (e) {
+      $("estado").hidden = true;
+      if (vinoDeMP) mostrarError(e.message);
+    }
+  }
 
   $("pase-copiar").onclick = () => {
     navigator.clipboard.writeText($("pase-key").textContent);
     $("pase-copiar").textContent = "¡Copiada!";
   };
+
+  cargarPrecios();
+  procesarRetorno();
 })();
 </script>
 
