@@ -3,15 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FiskLive - Pases</title>
+<title>FiskLive - Planes</title>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; }
   .pase { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 12px 0; }
   .pase h3, .pase p { margin: 4px 0; }
   .precio { font-size: 1.15rem; font-weight: 600; }
-  button.pagar { width: 100%; padding: 12px; margin-top: 8px; border: 0; border-radius: 8px;
-                 background: #009ee3; color: #fff; font-size: 1rem; cursor: pointer; }
-  button.pagar:disabled { opacity: .6; cursor: wait; }
+  .sub { font-size: .8rem; color: #666; margin: 2px 0 0; }
+  button.pagar { width: 100%; padding: 12px; margin-top: 10px; border: 0; border-radius: 8px;
+                 font-size: 1rem; cursor: pointer; }
+  button.mp { background: #009ee3; color: #fff; }
+  button.bn { background: #f0b90b; color: #1e2329; }
+  button.pagar:disabled { opacity: .55; cursor: not-allowed; }
   input { width: 100%; padding: 8px; margin: 6px 0 12px; box-sizing: border-box; }
   #pase-resultado { border: 2px solid #2a9d4b; border-radius: 10px; padding: 12px; }
   .nota { font-size: .85rem; color: #555; }
@@ -19,11 +22,9 @@
 </head>
 <body>
 
-<p><a href="index.html">&larr; Volver</a></p>
-
 <section id="pases">
-  <h2>Pases de pago único</h2>
-  <p>Paga una sola vez, sin renovación automática. Cobramos en pesos con Mercado Pago.</p>
+  <h2>Planes de FiskLive</h2>
+  <p>Paga una sola vez, sin renovación automática. El precio es en dólares y se muestra también en pesos.</p>
 
   <label>
     ¿Ya tienes un pase? Escribe tu clave para sumarle días (opcional):
@@ -49,6 +50,9 @@
 <script>
 (function () {
   const WORKER = "https://fisklive-licencias.fiscardiariel8.workers.dev";
+  // Pasar a true cuando el Worker tenga Binance Pay implementado
+  const BINANCE_ENABLED = false;
+
   const $ = (id) => document.getElementById(id);
   const fmtARS = (n) => "$ " + Number(n).toLocaleString("es-AR");
   const ls = {
@@ -84,6 +88,19 @@
   const guardada = ls.get("fisk_pase_key");
   if (guardada) $("pase-clave").value = guardada;
 
+  function crearBoton(clase, texto, detalle) {
+    const frag = document.createDocumentFragment();
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "pagar " + clase;
+    btn.textContent = texto;
+    const sub = document.createElement("p");
+    sub.className = "sub";
+    sub.textContent = detalle;
+    frag.append(btn, sub);
+    return { frag, btn };
+  }
+
   // ---- Precios ----
   async function cargarPrecios() {
     try {
@@ -98,17 +115,27 @@
         const precio = document.createElement("p");
         precio.className = "precio";
         precio.textContent = "US$ " + p.usd + " / " + fmtARS(p.ars);
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "pagar";
-        btn.textContent = "Pagar con Mercado Pago";
-        btn.onclick = () => pagar(id, btn);
-        box.append(h, precio, btn);
+        box.append(h, precio);
+
+        // 1) Mercado Pago (primero)
+        const mp = crearBoton("mp", "Pagar con Mercado Pago",
+          "En pesos · tarjeta, transferencia o dinero en cuenta");
+        mp.btn.onclick = () => pagar(id, mp.btn, "mercadopago");
+        box.appendChild(mp.frag);
+
+        // 2) Binance (último)
+        const bn = crearBoton("bn",
+          BINANCE_ENABLED ? "Pagar con Binance (USDT)" : "Binance Pay — próximamente",
+          "En dólares (US$ " + p.usd + " en USDT)");
+        bn.btn.disabled = !BINANCE_ENABLED;
+        if (BINANCE_ENABLED) bn.btn.onclick = () => pagar(id, bn.btn, "binance");
+        box.appendChild(bn.frag);
+
         lista.appendChild(box);
       });
       const tipos = { oficial: "oficial", bolsa: "MEP", contadoconliqui: "CCL", mayorista: "mayorista" };
       $("nota-cotizacion").textContent =
-        "Precio en pesos calculado con el dólar " + (tipos[d.tipo] || d.tipo) + " (" + fmtARS(d.rate) +
+        "El precio en pesos se calcula con el dólar " + (tipos[d.tipo] || d.tipo) + " (" + fmtARS(d.rate) +
         ") al momento de pagar.";
     } catch (e) {
       $("lista").textContent = "";
@@ -117,46 +144,48 @@
   }
 
   // ---- Pagar ----
-  async function pagar(passId, btn) {
+  async function pagar(passId, btn, proveedor) {
     $("pase-error").hidden = true;
+    const textoOriginal = btn.textContent;
     btn.disabled = true;
-    btn.textContent = "Redirigiendo a Mercado Pago…";
+    btn.textContent = "Redirigiendo…";
     try {
       const key = $("pase-clave").value.trim().toUpperCase() || null;
-      const d = await api("/create-order", { passId, key });
+      const ruta = proveedor === "binance" ? "/create-order-binance" : "/create-order";
+      const d = await api(ruta, { passId, key });
       ls.set("fisk_ref", d.ref);
       location.href = d.url;
     } catch (e) {
       mostrarError(e.message);
       btn.disabled = false;
-      btn.textContent = "Pagar con Mercado Pago";
+      btn.textContent = textoOriginal;
     }
   }
 
-  // ---- Al volver de Mercado Pago ----
+  // ---- Al volver del pago ----
   async function procesarRetorno() {
     const q = new URLSearchParams(location.search);
     const limpio = (v) => (v && v !== "null" ? v : null);
     const pid = limpio(q.get("payment_id")) || limpio(q.get("collection_id"));
     const status = limpio(q.get("status")) || limpio(q.get("collection_status"));
     const ref = limpio(q.get("external_reference")) || ls.get("fisk_ref");
-    const vinoDeMP = !!(pid || status);
+    const vinoDePago = !!(pid || status);
     if (!ref) return;
-    if (vinoDeMP) history.replaceState(null, "", location.pathname);
+    if (vinoDePago) history.replaceState(null, "", location.pathname);
 
-    if (vinoDeMP) mostrarEstado("Verificando tu pago…");
+    if (vinoDePago) mostrarEstado("Verificando tu pago…");
     try {
       const d = await api("/claim", { ref, paymentId: pid || undefined });
       if (d.key) return mostrarClave(d);
       if (d.failed) {
         ls.del("fisk_ref");
-        if (vinoDeMP) { $("estado").hidden = true; mostrarError("El pago no se completó. No se te cobró."); }
+        if (vinoDePago) { $("estado").hidden = true; mostrarError("El pago no se completó. No se te cobró."); }
         return;
       }
-      if (vinoDeMP) mostrarEstado("Tu pago está en proceso. Cuando se acredite, vuelve a esta página y verás tu clave.");
+      if (vinoDePago) mostrarEstado("Tu pago está en proceso. Cuando se acredite, vuelve a esta página y verás tu clave.");
     } catch (e) {
       $("estado").hidden = true;
-      if (vinoDeMP) mostrarError(e.message);
+      if (vinoDePago) mostrarError(e.message);
     }
   }
 
