@@ -5,19 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FiskLive - Planes</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; }
-  .pase { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 12px 0; }
+  :root { color-scheme: dark; }
+  html { min-height: 100%; background: #0f172a linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%) fixed; }
+  body { font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 20px 16px 40px; color: #e5e7eb; }
+  h2 { font-size: 1.6rem; margin-bottom: 4px; }
+  a { color: #93c5fd; }
+  .pase { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+          padding: 16px; margin: 14px 0; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
   .pase h3, .pase p { margin: 4px 0; }
-  .precio { font-size: 1.15rem; font-weight: 600; }
-  .sub { font-size: .8rem; color: #666; margin: 2px 0 0; }
-  button.pagar { width: 100%; padding: 12px; margin-top: 10px; border: 0; border-radius: 8px;
-                 font-size: 1rem; cursor: pointer; }
+  .precio { font-size: 1.2rem; font-weight: 700; color: #fff; }
+  .sub { font-size: .8rem; color: #9ca3af; margin: 2px 0 0; }
+  button.pagar { width: 100%; padding: 13px; margin-top: 10px; border: 0; border-radius: 10px;
+                 font-size: 1rem; font-weight: 600; cursor: pointer; }
   button.mp { background: #009ee3; color: #fff; }
   button.bn { background: #f0b90b; color: #1e2329; }
-  button.pagar:disabled { opacity: .55; cursor: not-allowed; }
-  input { width: 100%; padding: 8px; margin: 6px 0 12px; box-sizing: border-box; }
-  #pase-resultado { border: 2px solid #2a9d4b; border-radius: 10px; padding: 12px; }
-  .nota { font-size: .85rem; color: #555; }
+  button.pagar:disabled { opacity: .5; cursor: not-allowed; }
+  input { width: 100%; padding: 10px; margin: 6px 0 12px; box-sizing: border-box; border-radius: 8px;
+          border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; }
+  input::placeholder { color: #9ca3af; }
+  #pase-resultado { border: 2px solid #34d399; background: rgba(52,211,153,.12); border-radius: 14px; padding: 14px; }
+  #pase-error { color: #ff8a8a; }
+  .nota { font-size: .85rem; color: #9ca3af; }
 </style>
 </head>
 <body>
@@ -42,9 +50,9 @@
     <p><strong>Guárdala:</strong> la necesitas para entrar a la app y para renovar.</p>
     <button type="button" id="pase-copiar">Copiar clave</button>
   </div>
-  <p id="pase-error" style="color:#c00" hidden></p>
+  <p id="pase-error" hidden></p>
 
-  <p class="nota">Soporte y reembolsos: arielfiscardi@gmail.com</p>
+  <p class="nota">Soporte y reembolsos: TU_CORREO@ejemplo.com</p>
 </section>
 
 <script>
