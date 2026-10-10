@@ -11,8 +11,7 @@
 <!-- 1) SDK de PayPal para pagos únicos.
      IMPORTANTE: data-namespace evita chocar con el SDK de suscripciones que ya tienes cargado.
      Reemplaza TU_CLIENT_ID por tu Client ID público (el mismo que usas en producción). -->
-<script src="https://www.paypal.com/sdk/js?client-id=BAAfPRoOxdo6wYyN6tcykw8H8WlxGBpiav1uvMc-Jyo7ohxWcXhZmUkSouXEJWghvwxSOvMIUGd0QBFg70&currency=USD&intent=capture"
-        data-namespace="paypalPases"></script>
+<script src="https:www.paypal.com/sdk/js?client-id=BAAfPRoOxdo6wYyN6tcykw8H8WlxGBpiav1uvMc-Jyo7ohxWcXhZmUkSouXEJWghvwxSOvMIUGd0QBFg70&currency=USD&intent=capture"></script>
 
 <!-- 2) Sección visible -->
 <section id="pases">
@@ -51,7 +50,7 @@
   try { const g = localStorage.getItem("fisk_pase_key"); if (g) $("pase-clave").value = g; } catch (e) {}
 
   PASES.forEach((id) => {
-    paypalPases.Buttons({
+    paypal.Buttons({
       createOrder: async () => {
         $("pase-error").hidden = true;
         const key = $("pase-clave").value.trim().toUpperCase() || null;
