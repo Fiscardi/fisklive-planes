@@ -4,16 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FiskLive - Pases</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 520px; margin: 0 auto; padding: 16px; }
+  .pase { border: 1px solid #ccc; border-radius: 10px; padding: 12px; margin: 12px 0; }
+  .pase h3, .pase p { margin: 4px 0; }
+  input { width: 100%; padding: 8px; margin: 6px 0 12px; box-sizing: border-box; }
+  #pase-resultado { border: 2px solid #2a9d4b; border-radius: 10px; padding: 12px; }
+</style>
 </head>
 <body>
-<!-- ============ PASES DE PAGO ÚNICO (pegar en tu página de planes) ============ -->
 
-<!-- 1) SDK de PayPal para pagos únicos.
-     IMPORTANTE: data-namespace evita chocar con el SDK de suscripciones que ya tienes cargado.
-     Reemplaza TU_CLIENT_ID por tu Client ID público (el mismo que usas en producción). -->
-<script src="https:www.paypal.com/sdk/js?client-id=BAAfPRoOxdo6wYyN6tcykw8H8WlxGBpiav1uvMc-Jyo7ohxWcXhZmUkSouXEJWghvwxSOvMIUGd0QBFg70&currency=USD&intent=capture"></script>
+<p><a href="index.html">&larr; Volver a las suscripciones</a></p>
 
-<!-- 2) Sección visible -->
 <section id="pases">
   <h2>Pases de pago único</h2>
   <p>Paga una sola vez, sin renovación automática. Puedes pagar con saldo de PayPal.</p>
@@ -23,9 +25,9 @@
     <input id="pase-clave" placeholder="FISK-XXXX-XXXX-XXXX" autocomplete="off">
   </label>
 
-  <div class="pase"><h3>1 día</h3>  <p>US$ 1.99</p>  <div id="pp-1"></div></div>
-  <div class="pase"><h3>7 días</h3> <p>US$ 6.99</p>  <div id="pp-7"></div></div>
-  <div class="pase"><h3>30 días</h3><p>US$ 19.99</p> <div id="pp-30"></div></div>
+  <div class="pase"><h3>1 día</h3>   <p>US$ 1.99</p>  <div id="pp-1"></div></div>
+  <div class="pase"><h3>7 días</h3>  <p>US$ 6.99</p>  <div id="pp-7"></div></div>
+  <div class="pase"><h3>30 días</h3> <p>US$ 19.99</p> <div id="pp-30"></div></div>
 
   <div id="pase-resultado" hidden>
     <h3>¡Pago recibido!</h3>
@@ -37,7 +39,9 @@
   <p id="pase-error" style="color:#c00" hidden></p>
 </section>
 
-<!-- 3) Lógica -->
+<!-- SDK de PayPal (pago único). Reemplaza TU_CLIENT_ID por tu Client ID Live -->
+<script src="https://www.paypal.com/sdk/js?client-id=TU_CLIENT_ID&currency=USD&intent=capture"></script>
+
 <script>
 (function () {
   const WORKER = "https://fisklive-licencias.fiscardiariel8.workers.dev";
@@ -46,7 +50,11 @@
   const $ = (id) => document.getElementById(id);
   const mostrarError = (m) => { $("pase-error").textContent = m; $("pase-error").hidden = false; };
 
-  // Recordar la clave del pase en este navegador (si el almacenamiento está disponible)
+  if (typeof paypal === "undefined") {
+    mostrarError("No se pudo cargar PayPal. Revisa el Client ID o desactiva el bloqueador de anuncios.");
+    return;
+  }
+
   try { const g = localStorage.getItem("fisk_pase_key"); if (g) $("pase-clave").value = g; } catch (e) {}
 
   PASES.forEach((id) => {
@@ -91,5 +99,6 @@
   };
 })();
 </script>
+
 </body>
 </html>
