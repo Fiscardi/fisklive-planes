@@ -1,0 +1,86 @@
+<!-- ============ PASES DE PAGO ÚNICO (pegar en tu página de planes) ============ -->
+
+<!-- 1) SDK de PayPal para pagos únicos.
+     IMPORTANTE: data-namespace evita chocar con el SDK de suscripciones que ya tienes cargado.
+     Reemplaza TU_CLIENT_ID por tu Client ID público (el mismo que usas en producción). -->
+<script src="https://www.paypal.com/sdk/js?client-id=TU_CLIENT_ID&currency=USD&intent=capture"
+        data-namespace="paypalPases"></script>
+
+<!-- 2) Sección visible -->
+<section id="pases">
+  <h2>Pases de pago único</h2>
+  <p>Paga una sola vez, sin renovación automática. Puedes pagar con saldo de PayPal.</p>
+
+  <label>
+    ¿Ya tienes un pase? Escribe tu clave para sumarle días (opcional):
+    <input id="pase-clave" placeholder="FISK-XXXX-XXXX-XXXX" autocomplete="off">
+  </label>
+
+  <div class="pase"><h3>1 día</h3>  <p>US$ 1.99</p>  <div id="pp-1"></div></div>
+  <div class="pase"><h3>7 días</h3> <p>US$ 6.99</p>  <div id="pp-7"></div></div>
+  <div class="pase"><h3>30 días</h3><p>US$ 19.99</p> <div id="pp-30"></div></div>
+
+  <div id="pase-resultado" hidden>
+    <h3>¡Pago recibido!</h3>
+    <p>Tu clave es: <strong id="pase-key"></strong></p>
+    <p>Vence el: <span id="pase-hasta"></span></p>
+    <p><strong>Guárdala:</strong> la necesitas para entrar a la app y para renovar.</p>
+    <button type="button" id="pase-copiar">Copiar clave</button>
+  </div>
+  <p id="pase-error" style="color:#c00" hidden></p>
+</section>
+
+<!-- 3) Lógica -->
+<script>
+(function () {
+  const WORKER = "https://fisklive-licencias.fiscardiariel8.workers.dev";
+  const PASES = ["1", "7", "30"]; // deben existir en la variable PASSES del Worker
+
+  const $ = (id) => document.getElementById(id);
+  const mostrarError = (m) => { $("pase-error").textContent = m; $("pase-error").hidden = false; };
+
+  // Recordar la clave del pase en este navegador (si el almacenamiento está disponible)
+  try { const g = localStorage.getItem("fisk_pase_key"); if (g) $("pase-clave").value = g; } catch (e) {}
+
+  PASES.forEach((id) => {
+    paypalPases.Buttons({
+      createOrder: async () => {
+        $("pase-error").hidden = true;
+        const key = $("pase-clave").value.trim().toUpperCase() || null;
+        const r = await fetch(WORKER + "/create-order", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ passId: id, key }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.id) throw new Error(d.error || "No se pudo crear la orden");
+        return d.id;
+      },
+
+      onApprove: async (data) => {
+        const r = await fetch(WORKER + "/capture-order", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ orderID: data.orderID }),
+        });
+        const d = await r.json();
+        if (!r.ok || !d.key) throw new Error(d.error || "No se pudo confirmar el pago");
+
+        try { localStorage.setItem("fisk_pase_key", d.key); } catch (e) {}
+        $("pase-key").textContent = d.key;
+        $("pase-hasta").textContent = new Date(d.until).toLocaleString();
+        $("pase-resultado").hidden = false;
+        $("pase-resultado").scrollIntoView({ behavior: "smooth" });
+      },
+
+      onError: (err) => mostrarError(err.message || "Ocurrió un error con el pago"),
+      onCancel: () => mostrarError("Cancelaste el pago. No se te cobró nada."),
+    }).render("#pp-" + id);
+  });
+
+  $("pase-copiar").onclick = () => {
+    navigator.clipboard.writeText($("pase-key").textContent);
+    $("pase-copiar").textContent = "¡Copiada!";
+  };
+})();
+</script>
