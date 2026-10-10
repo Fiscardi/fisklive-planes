@@ -80,7 +80,11 @@
     return d;
   }
 
-  const mostrarError = (m) => { $("pase-error").textContent = m; $("pase-error").hidden = false; };
+  const mostrarError = (m) => {
+    $("pase-error").textContent = m;
+    $("pase-error").hidden = false;
+    $("pase-error").scrollIntoView({ behavior: "smooth", block: "center" }); // que el aviso se vea aunque estés arriba
+  };
   const mostrarEstado = (m) => { $("estado").textContent = m; $("estado").hidden = false; };
 
   function mostrarClave(d) {
@@ -161,6 +165,7 @@
       const key = $("pase-clave").value.trim().toUpperCase() || null;
       const ruta = proveedor === "binance" ? "/create-order-binance" : "/create-order";
       const d = await api(ruta, { passId, key });
+      if (!d.url) throw new Error("No se pudo iniciar el pago. Intenta de nuevo en unos minutos.");
       ls.set("fisk_ref", d.ref);
       location.href = d.url;
     } catch (e) {
