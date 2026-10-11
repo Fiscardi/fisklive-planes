@@ -25,7 +25,6 @@
   th { background: rgba(255,255,255,.08); position: sticky; top: 0; }
   td button { padding: 5px 10px; font-size: .8rem; }
   .estado-aprobado { color: #34d399; } .estado-reembolsado { color: #fbbf24; } .estado-pendiente, .estado-iniciado { color: #9ca3af; }
-  @media print { html { background: #fff; } body { color: #000; } .row, #msg, p { display: none; } .tabla { border: 0; } }
 </style>
 </head>
 <body>
@@ -176,21 +175,52 @@
     XLSX.writeFile(wb, nombreArchivo("xlsx"));
   };
 
-  $("imprimir").onclick = () => window.print();
+  $("imprimir").onclick = () => abrirDocumento("Registro de contratos", informeHtml(filas));
 
-  // Hoja de constancia de un contrato (para imprimir o guardar como PDF)
-  function constancia(c) {
+  // ---- Documentos para imprimir o guardar como PDF (hoja A4 apaisada, nada se corta) ----
+  const esc = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+
+  const RESUMEN = ["N° contrato", "Fecha y hora (Argentina)", "Nombre y apellido", "Correo", "Teléfono",
+                   "Plan (días)", "Precio US$", "Importe cobrado ARS", "Estado del pago", "ID de pago (Mercado Pago)"];
+
+  const bloqueContrato = (c) =>
+    '<div class="bloque"><table>' +
+    COLUMNAS.map(([n, f]) => "<tr><th>" + esc(n) + "</th><td>" + esc(f(c)) + "</td></tr>").join("") +
+    "</table></div>";
+
+  function informeHtml(lista) {
+    const idx = RESUMEN.map((n) => COLUMNAS.findIndex(([cn]) => cn === n));
+    const cab = "<tr>" + RESUMEN.map((n) => "<th>" + esc(n) + "</th>").join("") + "</tr>";
+    const filasRes = lista.map((c) => { const p = filaPlana(c); return "<tr>" + idx.map((i) => "<td>" + esc(p[i]) + "</td>").join("") + "</tr>"; }).join("");
+    return "<h1>FiskLive – Registro de contratos</h1>" +
+      "<p>Generado el " + esc(fecha(new Date().toISOString())) + " · " + lista.length + " contrato(s). Las fechas y horas corresponden al servidor.</p>" +
+      "<h2>Resumen</h2><table class='res'>" + cab + filasRes + "</table>" +
+      "<h2>Detalle de cada contrato</h2>" + lista.map(bloqueContrato).join("") +
+      "<p class='pie'>La huella de integridad (SHA-256) permite comprobar que el registro inicial no fue modificado.</p>";
+  }
+
+  function abrirDocumento(titulo, cuerpo) {
     const w = window.open("", "_blank");
-    if (!w) return mensaje("Permití las ventanas emergentes para ver la constancia.", "err");
-    const e = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-    const filasHtml = COLUMNAS.map(([n, f]) => "<tr><th>" + e(n) + "</th><td>" + e(f(c)) + "</td></tr>").join("");
-    w.document.write("<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
-      "<title>Constancia " + e(c.id) + "</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#111}" +
-      "h1{font-size:1.3rem}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top;word-break:break-word}th{background:#f3f4f6;width:38%}" +
-      "p{font-size:.85rem;color:#444}</style></head><body><h1>FiskLive – Constancia de contratación de servicio</h1>" +
-      "<p>Registro generado automáticamente al momento de la contratación. La fecha y hora corresponden al servidor.</p>" +
-      "<table>" + filasHtml + "</table><p>La huella de integridad (SHA-256) permite comprobar que el registro inicial no fue modificado.</p></body></html>");
+    if (!w) return mensaje("Permití las ventanas emergentes para ver el documento.", "err");
+    w.document.write("<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>" + esc(titulo) + "</title><style>" +
+      "@page{size:A4 landscape;margin:10mm}" +
+      "body{font-family:system-ui,sans-serif;color:#111;margin:0 auto;padding:14px;font-size:12px;max-width:1100px}" +
+      "h1{font-size:19px;margin:0 0 4px}h2{font-size:14px;margin:20px 0 6px}p{color:#444}" +
+      "table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top;word-break:break-word}th{background:#eee}" +
+      ".res{font-size:10.5px}.bloque{break-inside:avoid;page-break-inside:avoid;margin-bottom:14px}.bloque th{width:32%}" +
+      ".btn{background:#4f46e5;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;margin:0 0 12px;cursor:pointer}" +
+      ".pie{font-size:11px}@media print{.no-print{display:none}body{padding:0}}" +
+      "</style></head><body><button class='btn no-print' onclick='window.print()'>Imprimir / Guardar como PDF</button>" + cuerpo + "</body></html>");
     w.document.close();
+  }
+
+  // Constancia de un solo contrato
+  function constancia(c) {
+    abrirDocumento("Constancia " + c.id,
+      "<h1>FiskLive – Constancia de contratación de servicio</h1>" +
+      "<p>Registro generado automáticamente al momento de la contratación. La fecha y hora corresponden al servidor.</p>" +
+      bloqueContrato(c) +
+      "<p class='pie'>La huella de integridad (SHA-256) permite comprobar que el registro inicial no fue modificado.</p>");
   }
 
   $("cargar").onclick = cargar;

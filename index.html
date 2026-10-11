@@ -2,12 +2,269 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FiskLive</title>
-<script>location.replace("pases.html" + location.search + location.hash);</script>
-<noscript><meta http-equiv="refresh" content="0; url=pases.html"></noscript>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FiskLive – Juegos interactivos para tus lives de TikTok</title>
+<meta name="description" content="FiskLive conecta tus directos de TikTok con GTA 5, Minecraft, REPO, Crash Bandicoot y más. Descargá gratis.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F3FB; --surface:#FFFFFF; --ink:#1B1633; --muted:#5A5575; --line:#DDD8EE;
+  --accent:#5B3DF5; --accent-ink:#FFFFFF; --pop:#FFD84A; --pop-ink:#2B2200; --live:#E8334F;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#120F24; --surface:#1B1733; --ink:#F1EEFF; --muted:#A9A3C8; --line:#2F2A52;
+    --accent:#8F7BFF; --accent-ink:#120F24;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#120F24; --surface:#1B1733; --ink:#F1EEFF; --muted:#A9A3C8; --line:#2F2A52;
+  --accent:#8F7BFF; --accent-ink:#120F24;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:17px;line-height:1.6}
+h1,h2,h3{font-family:"Unbounded","Trebuchet MS",system-ui,sans-serif;line-height:1.12;margin:0;letter-spacing:-.02em}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1060px;margin:0 auto;padding:0 22px}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.brand{font-family:"Unbounded",sans-serif;font-weight:800;font-size:1.2rem;text-decoration:none;display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:1rem}
+nav a{margin-left:22px;text-decoration:none;color:var(--muted);font-weight:500}
+nav a:hover{color:var(--ink)}
+
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;padding:48px 0 76px}
+.badge{display:inline-block;background:var(--pop);color:var(--pop-ink);font-weight:600;font-size:.88rem;padding:4px 14px;border-radius:999px;margin-bottom:20px}
+.hero h1{font-size:clamp(2.1rem,5.4vw,3.8rem);font-weight:800}
+.hero p.lead{font-size:1.15rem;color:var(--muted);max-width:33em;margin:22px 0 30px}
+.stores{display:flex;flex-wrap:wrap;gap:12px}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:14px;font-weight:600;text-decoration:none;
+  border:2px solid var(--ink);background:var(--ink);color:var(--bg);transition:transform .15s ease}
+.btn:hover{transform:translateY(-2px)}
+.btn small{display:block;font-size:.72rem;font-weight:500;opacity:.75;line-height:1.1}
+.btn b{display:block;font-size:1.02rem;line-height:1.15}
+.btn.ghost{background:transparent;color:var(--ink)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.apk{margin-top:16px;font-size:.95rem;color:var(--muted)}
+.apk a{font-weight:600;color:var(--ink)}
+
+/* Teléfono con live */
+.phone{justify-self:center;width:min(280px,72vw);aspect-ratio:9/18.5;border-radius:38px;background:#0B0916;padding:9px;
+  transform:rotate(3deg);box-shadow:12px 14px 0 var(--accent)}
+.screen{height:100%;border-radius:30px;background:linear-gradient(170deg,#2A2060 0%,#14102E 60%);position:relative;overflow:hidden;color:#fff;
+  display:flex;flex-direction:column;justify-content:space-between;padding:16px 14px;font-size:.78rem}
+.live{align-self:flex-start;background:var(--live);font-weight:700;font-size:.7rem;padding:2px 10px;border-radius:6px;letter-spacing:.04em}
+.alert{align-self:center;margin-top:34px;background:var(--pop);color:var(--pop-ink);font-weight:700;border-radius:14px;padding:10px 14px;text-align:center;font-size:.85rem;max-width:90%}
+.alert span{display:block;font-weight:500;font-size:.72rem;opacity:.8}
+.chat{display:grid;gap:7px}
+.chat p{margin:0;background:rgba(255,255,255,.12);border-radius:12px;padding:6px 10px;line-height:1.3}
+.chat b{color:var(--pop)}
+
+section{padding:68px 0;border-top:1px solid var(--line)}
+section>.wrap>h2{font-size:clamp(1.55rem,3.6vw,2.3rem);font-weight:700;max-width:20em}
+.sub{color:var(--muted);max-width:38em;margin:14px 0 0}
+
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:38px;margin-top:42px}
+.features h3{font-size:1.05rem;margin-bottom:10px;font-weight:700}
+.features p{margin:0;color:var(--muted)}
+
+.games{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px;padding:0;list-style:none}
+.games li{font-family:"Unbounded",sans-serif;font-weight:700;font-size:1rem;padding:14px 22px;border-radius:14px;background:var(--surface);border:2px solid var(--line)}
+.games li.more{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:20px;margin-top:38px}
+.plan{background:var(--surface);border:2px solid var(--line);border-radius:22px;padding:28px;display:flex;flex-direction:column}
+.plan.featured{border-color:var(--accent)}
+.plan h3{font-size:1.2rem}
+.plan .dur{margin:4px 0 0;color:var(--muted);font-size:.95rem}
+.plan .tag{display:inline-block;align-self:flex-start;background:var(--pop);color:var(--pop-ink);font-weight:600;font-size:.8rem;padding:3px 12px;border-radius:999px;margin-bottom:12px}
+.price{font-family:"Unbounded",sans-serif;font-size:2rem;font-weight:800;margin:16px 0 2px;letter-spacing:-.03em}
+.price span{font-family:"Instrument Sans",sans-serif;font-size:.95rem;font-weight:500;color:var(--muted);letter-spacing:0}
+.plan ul{list-style:none;padding:0;margin:18px 0 26px;display:grid;gap:10px;flex:1}
+.plan li{padding-left:28px;position:relative}
+.plan li::before{content:"";position:absolute;left:2px;top:.45em;width:14px;height:8px;border-left:3px solid var(--accent);border-bottom:3px solid var(--accent);transform:rotate(-45deg)}
+.plan .btn{justify-content:center;width:100%}
+.pay-note{margin-top:24px;color:var(--muted);font-size:.95rem;max-width:44em}
+
+.feedback{background:var(--surface);border:2px solid var(--line);border-radius:24px;padding:36px;margin-top:0;display:flex;flex-wrap:wrap;gap:20px 40px;align-items:center;justify-content:space-between}
+.feedback h2{font-size:clamp(1.4rem,3vw,1.9rem);max-width:15em}
+.feedback p{margin:10px 0 0;color:var(--muted);max-width:32em}
+
+details{border-bottom:1px solid var(--line);padding:18px 0;max-width:780px}
+summary{font-weight:600;cursor:pointer;font-size:1.06rem}
+details p{color:var(--muted);margin:10px 0 0}
+
+footer{border-top:1px solid var(--line);padding:32px 0 44px;color:var(--muted);font-size:.92rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:12px 28px;justify-content:space-between}
+footer a{margin-right:18px}
+.legal{flex-basis:100%;font-size:.85rem;opacity:.85;max-width:60em}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr;padding:24px 0 52px}
+  .phone{order:-1;transform:rotate(2deg);width:min(215px,58vw)}
+  .features{grid-template-columns:1fr;gap:28px}
+  nav{display:none}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
+</style>
 </head>
 <body>
-<p><a href="pases.html">Ir a los planes de FiskLive</a></p>
+<div class="wrap">
+  <header>
+    <a class="brand" href="#"><span class="logo" aria-hidden="true">F</span>FiskLive</a>
+    <nav aria-label="Principal">
+      <a href="#descargar">Descargar</a>
+      <a href="#juegos">Juegos</a>
+      <a href="#planes">Planes</a>
+      <a href="#faq">Preguntas</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero" id="descargar">
+      <div>
+        <span class="badge">En desarrollo · tu feedback cuenta</span>
+        <h1>Tu live, jugado por tu chat</h1>
+        <p class="lead">FiskLive conecta tus directos de TikTok con juegos como GTA 5, Minecraft, REPO y Crash Bandicoot, para que tu audiencia participe en tiempo real. Siempre online y con novedades constantes.</p>
+        <div class="stores">
+          <a class="btn accent" href="https://github.com/Fiscardi/fisklive-descargas/releases/latest"><span><small>Última versión</small><b>Descargar FiskLive</b></span></a>
+          <a class="btn ghost" href="https://github.com/Fiscardi/fisklive-descargas/releases"><span><small>Modo interactivo GTA V</small><b>Archivos para juegos</b></span></a>
+        </div>
+        <p class="apk">Versión para Android: próximamente. <a href="mailto:arielfiscardi@gmail.com?subject=Quiero%20FiskLive%20para%20Android">Avisame cuando salga</a></p>
+      </div>
+      <div class="phone" aria-hidden="true">
+        <div class="screen">
+          <div>
+            <span class="live">EN VIVO</span>
+            <div class="alert">¡Lluvia de TNT activada!<span>Acción enviada por el chat</span></div>
+          </div>
+          <div class="chat">
+            <p><b>luna_77</b> mandó una rosa</p>
+            <p><b>kiko</b> ¡ahora el creeper!</p>
+            <p><b>nico_gg</b> mandó un gamepad</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <div class="wrap">
+        <h2>Hecha para que tu directo no pare nunca</h2>
+        <div class="features">
+          <div><h3>Siempre online</h3><p>Una app estable para tus lives, con actualizaciones constantes y mejoras que llegan sin que tengas que esperar.</p></div>
+          <div><h3>Juegos nuevos y conocidos</h3><p>Sumamos títulos que tu audiencia ya ama y probamos ideas nuevas todo el tiempo.</p></div>
+          <div><h3>Overlays gratis</h3><p>Personalizá cómo se ve tu live con overlays sin costo, también en el plan gratuito.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="juegos">
+      <div class="wrap">
+        <h2>Conectada con los juegos que tu chat quiere ver</h2>
+        <p class="sub">Compatible con estos juegos, y seguimos agregando más.</p>
+        <ul class="games">
+          <li>GTA 5</li>
+          <li>REPO</li>
+          <li>Minecraft</li>
+          <li>Crash Bandicoot</li>
+          <li class="more">y más</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="planes">
+      <div class="wrap">
+        <h2>Empezá gratis, desbloqueá más cuando lo necesites</h2>
+        <p class="sub">Probá FiskLive sin pagar. Si querés más perfiles y acciones, elegí por cuánto tiempo. Pagás una sola vez, sin renovación automática.</p>
+
+        <div class="plans">
+          <article class="plan">
+            <h3>Gratis</h3>
+            <p class="dur">Sin límite de tiempo</p>
+            <div class="price">$0</div>
+            <ul><li>1 perfil</li><li>Hasta 5 acciones</li><li>Overlays gratis</li></ul>
+            <a class="btn ghost" href="#descargar">Descargar gratis</a>
+          </article>
+
+          <article class="plan">
+            <h3>Diario</h3>
+            <p class="dur">Acceso por 1 día</p>
+            <div class="price">US$ 4 <span>≈ $ 6.140</span></div>
+            <ul><li>Más perfiles y acciones que el plan gratis</li><li>Overlays incluidos</li><li>Ideal para un directo especial</li></ul>
+            <!-- Enlace de los planes -->
+            <a class="btn ghost" href="https://fiscardi.github.io/fisklive-planes/pases.html">Pagar 1 día</a>
+          </article>
+
+          <article class="plan">
+            <h3>Semanal</h3>
+            <p class="dur">Acceso por 7 días</p>
+            <div class="price">US$ 16 <span>≈ $ 24.560</span></div>
+            <ul><li>Más perfiles y acciones que el plan gratis</li><li>Overlays incluidos</li><li>Soporte por correo</li></ul>
+            <a class="btn ghost" href="https://fiscardi.github.io/fisklive-planes/pases.html">Pagar 7 días</a>
+          </article>
+
+          <article class="plan featured">
+            <span class="tag">Mejor precio por día</span>
+            <h3>Mensual</h3>
+            <p class="dur">Acceso por 30 días</p>
+            <div class="price">US$ 12 <span>≈ $ 18.420</span></div>
+            <ul><li>Más perfiles y acciones que el plan gratis</li><li>Overlays incluidos</li><li>Soporte prioritario</li></ul>
+            <a class="btn accent" href="https://fiscardi.github.io/fisklive-planes/pases.html">Pagar 30 días</a>
+          </article>
+        </div>
+        <p class="pay-note">Pagás una sola vez, sin renovación automática. Los precios son en dólares y el valor en pesos es aproximado: se calcula con el dólar del momento en que pagás. Podés pagar con Mercado Pago; Binance Pay (USDT) llega próximamente. Soporte y reembolsos: arielfiscardi@gmail.com.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="feedback">
+          <div>
+            <h2>FiskLive crece con vos</h2>
+            <p>Es una app en desarrollo y lo que viene lo definen tus ideas. Contanos en Discord o por TikTok qué juego querés ver o qué función te falta.</p>
+          </div>
+          
+          <div class="stores">
+            <a class="btn accent" href="https://discord.gg/YUvMXMvgG" target="_blank" rel="noopener"><span><small>Comunidad</small><b>Unirme al Discord</b></span></a>
+            <a class="btn ghost" href="https://www.tiktok.com/@fiskardi24" target="_blank" rel="noopener"><span><small>TikTok</small><b>@fiskardi24</b></span></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2>Preguntas frecuentes</h2>
+        <div style="margin-top:28px">
+          <details><summary>¿Qué es FiskLive?</summary><p>Una app que conecta tus lives de TikTok con juegos, para que tu audiencia active acciones en pantalla mientras jugás.</p></details>
+          <details><summary>¿Con qué juegos funciona?</summary><p>Hoy con GTA 5, REPO, Minecraft y Crash Bandicoot, y vamos sumando más.</p></details>
+          <details><summary>¿Qué incluye el plan gratis?</summary><p>1 perfil con hasta 5 acciones y acceso a los overlays gratis, sin vencimiento.</p></details>
+          <details><summary>¿Qué medios de pago aceptan?</summary><p>Mercado Pago, en pesos, con tarjeta, transferencia o dinero en cuenta. Binance Pay (USDT) estará disponible próximamente.</p></details>
+          <details><summary>¿Cómo activo mi plan en la app?</summary><p>Al pagar recibís una clave (FISK-XXXX-XXXX-XXXX). Guardala: la necesitás para entrar a la app y para sumarle más días cuando renueves.</p></details>
+          <details><summary>¿Qué pasa cuando termina mi plan?</summary><p>Tu acceso vence al finalizar el período (1 día, 7 días o 30 días) y volvés al plan gratis. Para seguir con más funciones, elegí un plan de nuevo.</p></details>
+          <details><summary>¿Hay reembolsos?</summary><p>FiskLive es un producto digital de acceso inmediato: una vez entregado el acceso no se reembolsa por arrepentimiento. Sí hay reembolso o compensación si te cobramos de más, no recibís tu clave o el servicio falla por un problema nuestro. Mirá la <a href="https://fiscardi.github.io/fisklive-planes/reembolsos.html">Política de Reembolso</a> y probá gratis antes de comprar.</p></details>
+          <details><summary>¿TikTok puede restringir mi live?</summary><p>Algunos juegos pueden causar restricciones de TikTok en tu live por sus nuevas políticas. Afecta distinto a cada cuenta y no es motivo de reembolso. Por eso conviene probar primero con el plan gratuito.</p></details>
+          <details><summary>¿Por qué dicen que está en desarrollo?</summary><p>Porque la app mejora todo el tiempo. Tu feedback nos ayuda a decidir qué sumar primero.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 FiskLive</span>
+    <span><a href="https://fiscardi.github.io/fisklive-planes/terminos.html">Términos</a><a href="https://fiscardi.github.io/fisklive-planes/reembolsos.html">Reembolsos</a><a href="https://fiscardi.github.io/fisklive-planes/privacidad.html">Privacidad</a><a href="mailto:arielfiscardi@gmail.com">Correo</a><a href="https://discord.gg/YUvMXMvgG" target="_blank" rel="noopener">Discord</a><a href="https://www.tiktok.com/@fiskardi24" target="_blank" rel="noopener">TikTok</a></span>
+    <p class="legal">FiskLive no está afiliada a TikTok ni a los desarrolladores de los juegos mencionados. Todas las marcas pertenecen a sus respectivos dueños.</p>
+  </div>
+</footer>
 </body>
 </html>
