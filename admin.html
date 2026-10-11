@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>FiskLive – Registro de contratos</title>
+<style>
+  :root { color-scheme: dark; }
+  html { min-height: 100%; background: #0f172a linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%) fixed; }
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 20px 16px 50px; color: #e5e7eb; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  p { color: #9ca3af; margin: 4px 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+  input { flex: 1 1 260px; padding: 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; font-size: 1rem; }
+  button { padding: 11px 16px; border: 0; border-radius: 10px; font-size: .95rem; font-weight: 600; cursor: pointer; background: #6366f1; color: #fff; }
+  button.sec { background: rgba(255,255,255,.12); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  #msg { min-height: 1.4em; }
+  .err { color: #ff8a8a; }
+  .ok { color: #34d399; }
+  .tabla { overflow-x: auto; border: 1px solid rgba(255,255,255,.14); border-radius: 12px; margin-top: 14px; }
+  table { border-collapse: collapse; width: 100%; font-size: .85rem; white-space: nowrap; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.1); }
+  th { background: rgba(255,255,255,.08); position: sticky; top: 0; }
+  td button { padding: 5px 10px; font-size: .8rem; }
+  .estado-aprobado { color: #34d399; } .estado-reembolsado { color: #fbbf24; } .estado-pendiente, .estado-iniciado { color: #9ca3af; }
+  @media print { html { background: #fff; } body { color: #000; } .row, #msg, p { display: none; } .tabla { border: 0; } }
+</style>
+</head>
+<body>
+<h1>Registro de contratos</h1>
+<p>Uso interno. Ingresá tu clave de administrador para cargar los contratos guardados y exportarlos.</p>
+
+<div class="row">
+  <input id="token" type="password" placeholder="Clave de administrador" autocomplete="off">
+  <button id="cargar">Cargar contratos</button>
+</div>
+<p id="msg" role="status"></p>
+
+<div class="row" id="acciones" hidden>
+  <button id="xlsx" class="sec">Descargar Excel (.xlsx)</button>
+  <button id="csv" class="sec">Descargar CSV</button>
+  <button id="imprimir" class="sec">Imprimir / guardar PDF</button>
+</div>
+
+<div class="tabla" id="tabla-box" hidden>
+  <table>
+    <thead><tr id="thead"></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+(function () {
+  const WORKER = "https://fisklive-licencias.fiscardiariel8.workers.dev";
+  const $ = (id) => document.getElementById(id);
+  let filas = [];
+
+  const fecha = (iso) => iso ? new Date(iso).toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "medium" }) : "";
+  const num = (v) => (v === null || v === undefined || v === "" ? "" : v);
+
+  // Evita que un texto escrito por un cliente se ejecute como fórmula en Excel
+  const seguro = (v) => {
+    const t = String(v == null ? "" : v);
+    return /^[=+\-@\t\r]/.test(t) ? "'" + t : t;
+  };
+
+  const COLUMNAS = [
+    ["N° contrato", (c) => c.id],
+    ["Fecha y hora (Argentina)", (c) => fecha(c.fechaServidor)],
+    ["Fecha y hora (UTC, servidor)", (c) => c.fechaServidor || ""],
+    ["Nombre y apellido", (c) => c.nombre],
+    ["Correo", (c) => c.email],
+    ["Teléfono", (c) => c.telefono],
+    ["Plan (días)", (c) => num(c.diasContratados || (c.mostrado && c.mostrado.days))],
+    ["Precio US$", (c) => num(c.usd || (c.mostrado && c.mostrado.usd))],
+    ["Importe cobrado ARS", (c) => num(c.montoARS || c.importeARSAlCobrar || (c.mostrado && c.mostrado.ars))],
+    ["Cotización del dólar", (c) => num(c.cotizacion)],
+    ["Estado del pago", (c) => c.estadoPago || ""],
+    ["ID de pago (Mercado Pago)", (c) => c.paymentId || ""],
+    ["Referencia de orden", (c) => c.ref || ""],
+    ["Clave entregada (enmascarada)", (c) => c.claveEntregada || ""],
+    ["Vence el", (c) => fecha(c.venceEl)],
+    ["Versión de términos aceptada", (c) => c.terminosVersion || ""],
+    ["Aceptó términos y privacidad", (c) => (c.aceptoTerminosYPrivacidad ? "Sí" : "No")],
+    ["IP", (c) => c.ip || ""],
+    ["País", (c) => c.pais || ""],
+    ["Huella de integridad (SHA-256)", (c) => c.hashRegistroInicial || ""],
+  ];
+
+  const filaPlana = (c) => COLUMNAS.map(([, f]) => f(c));
+  const mensaje = (t, cls) => { $("msg").textContent = t; $("msg").className = cls || ""; };
+
+  async function cargar() {
+    const token = $("token").value;
+    if (!token) return mensaje("Escribe la clave de administrador.", "err");
+    $("cargar").disabled = true;
+    mensaje("Cargando…");
+    filas = [];
+    let cursor = null;
+    try {
+      do {
+        const r = await fetch(WORKER + "/admin/contracts", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token, cursor }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || "Error al cargar");
+        filas.push(...d.contracts);
+        cursor = d.cursor;
+        mensaje("Cargando… " + filas.length + " contratos");
+      } while (cursor);
+    } catch (e) {
+      $("cargar").disabled = false;
+      return mensaje(e.message === "Failed to fetch" ? "No hay conexión con el servidor." : e.message, "err");
+    }
+    $("cargar").disabled = false;
+    filas.sort((a, b) => String(b.fechaServidor).localeCompare(String(a.fechaServidor)));
+    dibujar();
+    mensaje(filas.length + " contrato(s) cargados.", "ok");
+  }
+
+  function dibujar() {
+    const th = $("thead"), tb = $("tbody");
+    th.textContent = ""; tb.textContent = "";
+    COLUMNAS.forEach(([n]) => { const e = document.createElement("th"); e.textContent = n; th.appendChild(e); });
+    const eC = document.createElement("th"); eC.textContent = "Constancia"; th.appendChild(eC);
+
+    filas.forEach((c) => {
+      const tr = document.createElement("tr");
+      filaPlana(c).forEach((v, i) => {
+        const td = document.createElement("td");
+        td.textContent = v;                       // textContent: no interpreta HTML
+        if (COLUMNAS[i][0] === "Estado del pago") td.className = "estado-" + String(v);
+        tr.appendChild(td);
+      });
+      const tdb = document.createElement("td");
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "sec"; b.textContent = "Ver / imprimir";
+      b.onclick = () => constancia(c);
+      tdb.appendChild(b); tr.appendChild(tdb);
+      tb.appendChild(tr);
+    });
+    $("tabla-box").hidden = false;
+    $("acciones").hidden = filas.length === 0;
+  }
+
+  const nombreArchivo = (ext) => "fisklive-contratos-" + new Date().toISOString().slice(0, 10) + "." + ext;
+
+  function descargar(blob, nombre) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  $("csv").onclick = () => {
+    const esc = (v) => '"' + seguro(v).replace(/"/g, '""') + '"';
+    const lineas = [COLUMNAS.map(([n]) => esc(n)).join(",")]
+      .concat(filas.map((c) => filaPlana(c).map(esc).join(",")));
+    descargar(new Blob(["\ufeff" + lineas.join("\r\n")], { type: "text/csv;charset=utf-8" }), nombreArchivo("csv"));
+  };
+
+  $("xlsx").onclick = () => {
+    if (!window.XLSX) return mensaje("No se pudo cargar el generador de Excel. Usa la opción CSV.", "err");
+    const datos = [COLUMNAS.map(([n]) => n)].concat(filas.map((c) => filaPlana(c).map((v) => typeof v === "string" ? seguro(v) : v)));
+    const ws = XLSX.utils.aoa_to_sheet(datos);
+    ws["!cols"] = COLUMNAS.map(([n]) => ({ wch: Math.max(14, Math.min(38, n.length + 4)) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contratos");
+    XLSX.writeFile(wb, nombreArchivo("xlsx"));
+  };
+
+  $("imprimir").onclick = () => window.print();
+
+  // Hoja de constancia de un contrato (para imprimir o guardar como PDF)
+  function constancia(c) {
+    const w = window.open("", "_blank");
+    if (!w) return mensaje("Permití las ventanas emergentes para ver la constancia.", "err");
+    const e = (t) => String(t == null ? "" : t).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+    const filasHtml = COLUMNAS.map(([n, f]) => "<tr><th>" + e(n) + "</th><td>" + e(f(c)) + "</td></tr>").join("");
+    w.document.write("<!DOCTYPE html><html lang='es'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>" +
+      "<title>Constancia " + e(c.id) + "</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#111}" +
+      "h1{font-size:1.3rem}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:7px 9px;text-align:left;font-size:.9rem;vertical-align:top;word-break:break-word}th{background:#f3f4f6;width:38%}" +
+      "p{font-size:.85rem;color:#444}</style></head><body><h1>FiskLive – Constancia de contratación de servicio</h1>" +
+      "<p>Registro generado automáticamente al momento de la contratación. La fecha y hora corresponden al servidor.</p>" +
+      "<table>" + filasHtml + "</table><p>La huella de integridad (SHA-256) permite comprobar que el registro inicial no fue modificado.</p></body></html>");
+    w.document.close();
+  }
+
+  $("cargar").onclick = cargar;
+  $("token").addEventListener("keydown", (ev) => { if (ev.key === "Enter") cargar(); });
+})();
+</script>
+</body>
+</html>
