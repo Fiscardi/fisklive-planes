@@ -66,8 +66,9 @@
   </div>
   <p id="pase-error" hidden></p>
 
-  <p class="nota">Soporte y reembolsos: arielfiscardi@gmail.com</p>
-  <p class="nota"><a href="terminos.html">Términos y condiciones</a> · <a href="privacidad.html">Política de privacidad</a></p>
+  <p class="nota">Producto digital de acceso inmediato. Antes de comprar, leé la <a href="reembolsos.html">Política de Reembolso</a>. Podés probar gratis con el plan gratuito.</p>
+  <p class="nota">Soporte y reembolsos: arielfiscardi@gmail.com · <a href="https://discord.gg/YUvMXMvgG">Discord</a></p>
+  <p class="nota"><a href="terminos.html">Términos y condiciones</a> · <a href="reembolsos.html">Política de reembolso</a> · <a href="privacidad.html">Política de privacidad</a></p>
 </section>
 
 <dialog id="contrato" aria-labelledby="c-titulo">
@@ -91,8 +92,13 @@
 
     <label class="chk">
       <input type="checkbox" id="c-acepto">
-      <span>Declaro que los datos son verdaderos y acepto los <a href="terminos.html" target="_blank" rel="noopener">Términos y condiciones</a> y la <a href="privacidad.html" target="_blank" rel="noopener">Política de privacidad</a>. Esta hoja queda registrada como constancia de la contratación.</span>
+      <span>Quiero acceso inmediato y acepto que, al recibir el contenido, pierdo mi derecho a cancelar con reembolso. He leído y acepto los <a href="terminos.html" target="_blank" rel="noopener">Términos</a>, la <a href="reembolsos.html" target="_blank" rel="noopener">Política de Reembolso</a> y la <a href="privacidad.html" target="_blank" rel="noopener">Política de privacidad</a>. Es un producto digital de acceso inmediato. Con Mercado Pago es un pago único: no se renueva solo y el acceso vence al terminar los días contratados.</span>
     </label>
+    <label class="chk">
+      <input type="checkbox" id="c-tiktok">
+      <span>También acepto que algunos juegos pueden causar restricciones de TikTok en mi live por sus nuevas políticas; afecta distinto a cada cuenta y no es motivo de reembolso.</span>
+    </label>
+    <p class="nota">Declaro que mis datos son verdaderos. Esta hoja queda registrada como constancia de la contratación.</p>
 
     <p id="c-error" role="alert" hidden></p>
     <button type="submit" class="pagar mp" id="c-enviar">Aceptar y continuar al pago</button>
@@ -224,7 +230,8 @@
 
 
   // ---- Contrato de servicio (hoja de datos antes de pagar) ----
-  const TERMINOS_VERSION = "2026-10-10";
+  const TERMINOS_VERSION = "2026-10-11";
+  const REEMBOLSO_VERSION = "2026-10-11";
   const dlg = $("contrato");
   let pendiente = null;
   let reloj = null;
@@ -235,6 +242,7 @@
     $("c-resumen").textContent = "Plan de " + (p.days === 1 ? "1 día" : p.days + " días") + " · US$ " + p.usd + " (≈ " + fmtARS(p.ars) + ")";
     $("c-error").hidden = true;
     $("c-acepto").checked = false;
+    $("c-tiktok").checked = false;
     const tick = () => { $("c-fecha").textContent = fechaAR(new Date()); };
     tick();
     clearInterval(reloj);
@@ -257,7 +265,8 @@
     if (nombre.length < 5 || nombre.indexOf(" ") === -1) return errContrato("Escribe tu nombre y apellido.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return errContrato("Escribe un correo electrónico válido.");
     if (digitos.length < 8 || digitos.length > 15) return errContrato("Escribe un número de teléfono válido.");
-    if (!$("c-acepto").checked) return errContrato("Debes aceptar los términos y la política de privacidad para continuar.");
+    if (!$("c-acepto").checked) return errContrato("Debes aceptar el acceso inmediato, los términos, la política de reembolso y la política de privacidad para continuar.");
+    if (!$("c-tiktok").checked) return errContrato("Debes aceptar la advertencia sobre las restricciones de TikTok para continuar.");
 
     const { passId, p, btn, proveedor } = pendiente;
     const enviar = $("c-enviar");
@@ -268,7 +277,10 @@
       const c = await api("/contract", {
         passId, nombre, email, telefono,
         acepta: true,
+        aceptaAccesoInmediato: true,
+        aceptaRiesgoTikTok: true,
         terminosVersion: TERMINOS_VERSION,
+        reembolsoVersion: REEMBOLSO_VERSION,
         fechaCliente: new Date().toISOString(),
         mostrado: { days: p.days, usd: p.usd, ars: p.ars },
         web: $("c-web").value,
