@@ -26,6 +26,19 @@
   #pase-resultado { border: 2px solid #34d399; background: rgba(52,211,153,.12); border-radius: 14px; padding: 14px; }
   #pase-error { color: #ff8a8a; }
   .nota { font-size: .85rem; color: #9ca3af; }
+
+  .nota a { color:#93c5fd; }
+  dialog#contrato { width:min(94vw,480px); max-height:92vh; overflow:auto; border:1px solid rgba(255,255,255,.2); border-radius:16px;
+                    background:#17163a; color:#e5e7eb; padding:20px 18px; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  dialog#contrato::backdrop { background:rgba(5,5,20,.75); }
+  dialog#contrato h3 { margin:0 0 4px; font-size:1.25rem; }
+  dialog#contrato label { display:block; font-size:.9rem; color:#cbd5e1; }
+  .fecha-box { background:rgba(255,255,255,.07); border-radius:10px; padding:10px 12px; margin:4px 0 12px; font-size:.9rem; }
+  .chk { display:flex !important; gap:8px; align-items:flex-start; font-size:.88rem; margin:6px 0 12px; }
+  .chk input { width:auto; margin:4px 0 0; flex:none; }
+  button.cancelar { background:transparent; color:#cbd5e1; border:1px solid rgba(255,255,255,.25) !important; }
+  #c-error { color:#ff8a8a; font-size:.9rem; margin:0 0 8px; }
+  .hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 </style>
 </head>
 <body>
@@ -47,13 +60,45 @@
     <h3>¡Pago recibido!</h3>
     <p>Tu clave es: <strong id="pase-key"></strong></p>
     <p>Vence el: <span id="pase-hasta"></span></p>
+    <p>N° de contrato: <strong id="pase-contrato"></strong></p>
     <p><strong>Guárdala:</strong> la necesitas para entrar a la app y para renovar.</p>
     <button type="button" id="pase-copiar">Copiar clave</button>
   </div>
   <p id="pase-error" hidden></p>
 
   <p class="nota">Soporte y reembolsos: arielfiscardi@gmail.com</p>
+  <p class="nota"><a href="terminos.html">Términos y condiciones</a> · <a href="privacidad.html">Política de privacidad</a></p>
 </section>
+
+<dialog id="contrato" aria-labelledby="c-titulo">
+  <form id="contrato-form" novalidate>
+    <h3 id="c-titulo">Contrato de servicio</h3>
+    <p class="nota" id="c-resumen"></p>
+
+    <label>Nombre y apellido
+      <input id="c-nombre" autocomplete="name" maxlength="100" placeholder="Ej: Juan Pérez">
+    </label>
+    <label>Correo electrónico
+      <input id="c-email" type="email" autocomplete="email" maxlength="120" placeholder="tucorreo@ejemplo.com">
+    </label>
+    <label>Número de teléfono
+      <input id="c-tel" type="tel" autocomplete="tel" maxlength="25" placeholder="+54 9 ...">
+    </label>
+
+    <div class="fecha-box">Fecha y hora de la contratación:<br><strong id="c-fecha"></strong></div>
+
+    <input class="hp" id="c-web" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <label class="chk">
+      <input type="checkbox" id="c-acepto">
+      <span>Declaro que los datos son verdaderos y acepto los <a href="terminos.html" target="_blank" rel="noopener">Términos y condiciones</a> y la <a href="privacidad.html" target="_blank" rel="noopener">Política de privacidad</a>. Esta hoja queda registrada como constancia de la contratación.</span>
+    </label>
+
+    <p id="c-error" role="alert" hidden></p>
+    <button type="submit" class="pagar mp" id="c-enviar">Aceptar y continuar al pago</button>
+    <button type="button" class="pagar cancelar" id="c-cancelar">Cancelar</button>
+  </form>
+</dialog>
 
 <script>
 (function () {
@@ -70,13 +115,27 @@
   };
 
   async function api(path, data) {
-    const r = await fetch(WORKER + path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(data || {}),
-    });
+    let r;
+    try {
+      r = await fetch(WORKER + path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(data || {}),
+      });
+    } catch (e) {
+      // El navegador no pudo hablar con el servidor: sin internet, servidor caído o bloqueo CORS
+      console.error("[FiskLive] fetch falló en " + path + " | origen de la página: " + location.origin, e);
+      const err = new Error("No hay conexión con el servidor de FiskLive.");
+      err.red = true;
+      throw err;
+    }
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(d.error || "Ocurrió un error");
+    if (!r.ok) {
+      console.error("[FiskLive] el servidor respondió " + r.status + " en " + path, d);
+      const err = new Error(d.error || "Ocurrió un error");
+      err.status = r.status;
+      throw err;
+    }
     return d;
   }
 
@@ -93,6 +152,7 @@
     $("estado").hidden = true;
     $("pase-key").textContent = d.key;
     $("pase-hasta").textContent = new Date(d.until).toLocaleString();
+    $("pase-contrato").textContent = ls.get("fisk_contrato") || "—";
     $("pase-resultado").hidden = false;
     $("pase-resultado").scrollIntoView({ behavior: "smooth" });
   }
@@ -132,7 +192,7 @@
         // 1) Mercado Pago (primero)
         const mp = crearBoton("mp", "Pagar con Mercado Pago",
           "En pesos · tarjeta, transferencia o dinero en cuenta");
-        mp.btn.onclick = () => pagar(id, mp.btn, "mercadopago");
+        mp.btn.onclick = () => abrirContrato(id, p, mp.btn, "mercadopago");
         box.appendChild(mp.frag);
 
         // 2) Binance (último)
@@ -140,7 +200,7 @@
           BINANCE_ENABLED ? "Pagar con Binance (USDT)" : "Binance Pay — próximamente",
           "En dólares (US$ " + p.usd + " en USDT)");
         bn.btn.disabled = !BINANCE_ENABLED;
-        if (BINANCE_ENABLED) bn.btn.onclick = () => pagar(id, bn.btn, "binance");
+        if (BINANCE_ENABLED) bn.btn.onclick = () => abrirContrato(id, p, bn.btn, "binance");
         box.appendChild(bn.frag);
 
         lista.appendChild(box);
@@ -151,12 +211,82 @@
         ") al momento de pagar.";
     } catch (e) {
       $("lista").textContent = "";
-      mostrarError("No se pudieron cargar los precios. Intenta de nuevo en unos minutos.");
+      const causa = e.red
+        ? "No hay conexión con el servidor (si abriste este archivo desde el celular, abrilo desde su dirección web https)."
+        : "El servidor respondió con un error" + (e.status ? " (" + e.status + ")" : "") + ": " + e.message;
+      mostrarError("No se pudieron cargar los precios. " + causa);
+      const re = document.createElement("button");
+      re.type = "button"; re.className = "pagar mp"; re.textContent = "Reintentar";
+      re.onclick = () => { $("pase-error").hidden = true; re.remove(); $("lista").textContent = "Cargando precios…"; cargarPrecios(); };
+      $("lista").appendChild(re);
     }
   }
 
+
+  // ---- Contrato de servicio (hoja de datos antes de pagar) ----
+  const TERMINOS_VERSION = "2026-10-10";
+  const dlg = $("contrato");
+  let pendiente = null;
+  let reloj = null;
+  const fechaAR = (d) => d.toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires", dateStyle: "short", timeStyle: "medium" }) + " (hora de Argentina)";
+
+  function abrirContrato(passId, p, btn, proveedor) {
+    pendiente = { passId, p, btn, proveedor };
+    $("c-resumen").textContent = "Plan de " + (p.days === 1 ? "1 día" : p.days + " días") + " · US$ " + p.usd + " (≈ " + fmtARS(p.ars) + ")";
+    $("c-error").hidden = true;
+    $("c-acepto").checked = false;
+    const tick = () => { $("c-fecha").textContent = fechaAR(new Date()); };
+    tick();
+    clearInterval(reloj);
+    reloj = setInterval(tick, 1000);
+    dlg.showModal();
+  }
+  dlg.addEventListener("close", () => clearInterval(reloj));
+  $("c-cancelar").onclick = () => dlg.close();
+
+  const errContrato = (m) => { $("c-error").textContent = m; $("c-error").hidden = false; };
+
+  $("contrato-form").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    $("c-error").hidden = true;
+    const nombre = $("c-nombre").value.trim().replace(/\s+/g, " ");
+    const email = $("c-email").value.trim().toLowerCase();
+    const telefono = $("c-tel").value.trim();
+    const digitos = telefono.replace(/\D/g, "");
+
+    if (nombre.length < 5 || nombre.indexOf(" ") === -1) return errContrato("Escribe tu nombre y apellido.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return errContrato("Escribe un correo electrónico válido.");
+    if (digitos.length < 8 || digitos.length > 15) return errContrato("Escribe un número de teléfono válido.");
+    if (!$("c-acepto").checked) return errContrato("Debes aceptar los términos y la política de privacidad para continuar.");
+
+    const { passId, p, btn, proveedor } = pendiente;
+    const enviar = $("c-enviar");
+    const textoEnviar = enviar.textContent;
+    enviar.disabled = true;
+    enviar.textContent = "Registrando…";
+    try {
+      const c = await api("/contract", {
+        passId, nombre, email, telefono,
+        acepta: true,
+        terminosVersion: TERMINOS_VERSION,
+        fechaCliente: new Date().toISOString(),
+        mostrado: { days: p.days, usd: p.usd, ars: p.ars },
+        web: $("c-web").value,
+      });
+      if (!c.contractId) throw new Error("No se pudo registrar el contrato. Intenta de nuevo.");
+      ls.set("fisk_contrato", c.contractId);
+      dlg.close();
+      await pagar(passId, btn, proveedor, c.contractId);
+    } catch (e) {
+      errContrato(e.message);
+    } finally {
+      enviar.disabled = false;
+      enviar.textContent = textoEnviar;
+    }
+  });
+
   // ---- Pagar ----
-  async function pagar(passId, btn, proveedor) {
+  async function pagar(passId, btn, proveedor, contractId) {
     $("pase-error").hidden = true;
     const textoOriginal = btn.textContent;
     btn.disabled = true;
@@ -164,7 +294,7 @@
     try {
       const key = $("pase-clave").value.trim().toUpperCase() || null;
       const ruta = proveedor === "binance" ? "/create-order-binance" : "/create-order";
-      const d = await api(ruta, { passId, key });
+      const d = await api(ruta, { passId, key, contractId });
       if (!d.url) throw new Error("No se pudo iniciar el pago. Intenta de nuevo en unos minutos.");
       ls.set("fisk_ref", d.ref);
       location.href = d.url;
@@ -207,6 +337,9 @@
     $("pase-copiar").textContent = "¡Copiada!";
   };
 
+  if (location.protocol !== "https:" && location.protocol !== "http:") {
+    console.warn("[FiskLive] Esta página se abrió como archivo local (" + location.protocol + "). Subila a una dirección https para que funcionen precios y pagos.");
+  }
   cargarPrecios();
   procesarRetorno();
 })();
