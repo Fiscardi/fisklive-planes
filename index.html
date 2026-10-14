@@ -116,6 +116,29 @@ footer a{margin-right:18px}
   .features{grid-template-columns:1fr;gap:28px}
   nav{display:none}
 }
+/* Galería de juegos */
+.shots{display:grid;gap:56px;margin-top:56px}
+.shot-group>h3{font-size:1.15rem;font-weight:700}
+.shot-group>p{margin:6px 0 0;color:var(--muted);font-size:.95rem}
+.shots figure{margin:0}
+.shots a{display:block;border:2px solid var(--ink);border-radius:18px;overflow:hidden;background:var(--surface);
+  box-shadow:6px 8px 0 var(--accent);transition:transform .15s ease,box-shadow .15s ease}
+.shots a:hover{transform:translate(-2px,-2px);box-shadow:8px 10px 0 var(--accent)}
+.shots img{display:block;width:100%;height:auto}
+.shot-row{display:grid;grid-template-columns:repeat(2,1fr);gap:26px;margin-top:22px}
+.shot-fit{display:flex;gap:26px;margin-top:22px}
+.shot-fit figure{flex:var(--r,1.78) 1 0;min-width:0}
+.shot-phones{display:flex;justify-content:center;gap:26px;margin-top:22px}
+.shot-phones figure{width:min(290px,44%)}
+@media (max-width:820px){
+  .shots{gap:44px;margin-top:44px}
+  .shot-row{grid-template-columns:1fr;gap:22px}
+  .shot-fit{flex-direction:column;gap:22px}
+  .shot-fit figure{flex:none}
+  .shot-phones{gap:16px}
+  .shot-phones figure{width:min(290px,46%)}
+}
+@media (prefers-reduced-motion:reduce){.shots a{transition:none}.shots a:hover{transform:none}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.btn{transition:none}.btn:hover{transform:none}}
 </style>
 </head>
@@ -161,57 +184,46 @@ footer a{margin-right:18px}
 
     <section id="juegos">
       <div class="wrap">
-        <h2>Conectada con los juegos que tu chat quiere</h2>
+        <h2>Conectada con los juegos que tu chat quiere ver</h2>
         <p class="sub">Compatible con estos juegos, y seguimos agregando más.</p>
         <ul class="games">
           <li>GTA 5</li>
           <li>REPO</li>
-          <li>Minecraft</li>   
+          <li>Minecraft</li>
           <li>Crash Bandicoot</li>
-          <li>TMNT</li>
-          <li class="more">y más</li>    
+          <li class="more">y más</li>
         </ul>
-<div class="container">
-  <!-- El 'g-4' agrega una separación (gutter) limpia entre las fotos -->
-  <div class="row g-4"> 
-    
-    <!-- Fila 1 -->
-    <div class="col-md-4">
-      <img src="img/gta5-portada.webp" class="img-fluid" alt="gta5-portada">
-    </div>
-    <div class="col-md-4">
-      <img src="img/gta5-live-1.webp" class="img-fluid" alt="gta5-live-1">
-    </div>
-    <div class="col-md-4">
-      <img src="img/gta5-live-2.webp" class="img-fluid" alt="gta5-live-2">
-    </div>
 
-    <!-- Fila 2 (bajan solas automáticamente) -->
-    <div class="col-md-4">
-      <img src="img/repo-portada.webp" class="img-fluid" alt="Imagen 4">
-    </div>
-    <div class="col-md-4">
-      <img src="img/repo-juego-1.webp" class="img-fluid" alt="Imagen 5">
-    </div>
-    <div class="col-md-4">
-      <img src="img/repo-juego-2.webp" class="img-fluid" alt="Imagen 6">
-    </div>
+        <div class="shots">
 
-    <!-- Fila 3 -->
-    <div class="col-md-4">
-      <img src="img/tmnt-menu.webp" class="img-fluid" alt="Imagen 7">
-    </div>
-    <div class="col-md-4">
-      <img src="img/tmnt-seleccion.webp" class="img-fluid" alt="Imagen 8">
-    </div>
-    <div class="col-md-4">
-      <img src="img/tmnt-combate.webp" class="img-fluid" alt="Imagen 9">
-    </div>
+          <div class="shot-group">
+            <h3>GTA 5</h3>
+            <div class="shot-phones">
+              <figure><a href="img/gta5-live-1.webp" target="_blank" rel="noopener"><img src="img/gta5-live-1.webp" width="720" height="1280" loading="lazy" decoding="async" alt="Directo de GTA 5 con la lista de acciones que activa el chat (captura 1)"></a></figure>
+              <figure><a href="img/gta5-live-2.webp" target="_blank" rel="noopener"><img src="img/gta5-live-2.webp" width="720" height="1280" loading="lazy" decoding="async" alt="Directo de GTA 5 con la lista de acciones que activa el chat (captura 2)"></a></figure>
+            </div>
+          </div>
 
-  </div>
-</div>
+          <div class="shot-group">
+            <h3>REPO</h3>
+            <div class="shot-fit">
+              <figure style="--r:1.78"><a href="img/repo-juego-1.webp" target="_blank" rel="noopener"><img src="img/repo-juego-1.webp" width="739" height="415" loading="lazy" decoding="async" alt="R.E.P.O.: tres robots con linternas en un pasillo oscuro"></a></figure>
+              <figure style="--r:2.14"><a href="img/repo-portada.webp" target="_blank" rel="noopener"><img src="img/repo-portada.webp" width="460" height="215" loading="lazy" decoding="async" alt="R.E.P.O.: arte del juego con tres robots"></a></figure>
+            </div>
+          </div>
 
-        
+          <div class="shot-group">
+            <h3>Tortugas Ninja</h3>
+            <p>Teenage Mutant Ninja Turtles: Shredder's Revenge</p>
+            <div class="shot-row">
+              <figure><a href="img/tmnt-menu.webp" target="_blank" rel="noopener"><img src="img/tmnt-menu.webp" width="1440" height="810" loading="lazy" decoding="async" alt="Tortugas Ninja: menú principal del juego"></a></figure>
+              <figure><a href="img/tmnt-seleccion.webp" target="_blank" rel="noopener"><img src="img/tmnt-seleccion.webp" width="1440" height="810" loading="lazy" decoding="async" alt="Tortugas Ninja: selección de personaje con Leonardo"></a></figure>
+              <figure><a href="img/tmnt-nivel.webp" target="_blank" rel="noopener"><img src="img/tmnt-nivel.webp" width="1440" height="810" loading="lazy" decoding="async" alt="Tortugas Ninja: Splinter en el primer nivel"></a></figure>
+              <figure><a href="img/tmnt-combate.webp" target="_blank" rel="noopener"><img src="img/tmnt-combate.webp" width="1440" height="810" loading="lazy" decoding="async" alt="Tortugas Ninja: Splinter combatiendo contra un jefe"></a></figure>
+            </div>
+          </div>
+
+        </div>
       </div>
     </section>
 
